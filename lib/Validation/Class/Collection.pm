@@ -186,6 +186,26 @@ sub list {
     
 }
 
+=method delete
+
+    my @values = $self->delete(@names);
+
+=cut
+
+sub delete {
+    
+    my ($self, @names) = @_;
+    
+    my @values = map {
+    
+        delete $self->{$_}
+    
+    }  @names;
+    
+    return (@values);
+    
+}
+
 =method values
 
     my @objects = $self->values;

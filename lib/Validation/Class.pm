@@ -1,4 +1,4 @@
-# ABSTRACT: Simple Object System, Data Validation and Modeling Framework
+# ABSTRACT: Self-Validating Object System and Data Validation Framework
 
 package Validation::Class;
 
@@ -525,25 +525,28 @@ sub field {
             
             my ($self, $data) = @_;
             
-            # this method-of-operation can be computationally expensive due to
-            # the fact that each call serializes/de-serializes the params hash 
-            # ... research a better approach
-            
-            my $proto      = $self->proto;
-            my $fields     = $proto->fields;
-            my $parameters = $proto->unflatten_params;
-            
-            my $result = undef;
+            my $proto  = $self->proto;
+            my $fields = $proto->fields;
             
             if (defined $data && not defined $fields->{$name}->{readonly}) {
                 
-                $parameters->{$name} = $data;
+                # expand and contract per request is awefully expensive ???
+                
+                $proto->unflatten_params;
+                
+                $proto->params->add($name => $data);
                 
             }
             
-            $result = $proto->field_default_value($name, $parameters);
-                
-            $proto->flatten_params($parameters);
+            # return absolute default value
+            
+            my $result = $proto->field_default_value(
+                $name, $proto->params->hash
+            );
+            
+            # restore parameters to their flattened state
+            
+            $proto->flatten_params;
             
             return $result;
             
@@ -1135,6 +1138,11 @@ sub new {
     
     $proto->{params} = Validation::Class::Params->new(%{$proto->{params}});
     
+    # initialize environment
+    
+    $proto->normalize;
+    $proto->apply_filters('pre') if $proto->filtering;   
+    
     # process plugins
     
     foreach my $plugin (keys %{$config->{PLUGINS}}) {
@@ -1150,12 +1158,7 @@ sub new {
         $builder->($self);
         
     }
-    
-    # initialize prototype
-    
-    $proto->normalize;
-    $proto->apply_filters('pre') if $proto->filtering;
-    
+
     # ready-set-go !!!
     
     return $self;

@@ -2433,7 +2433,7 @@ sub field_default_value {
     
     return 0 unless exists $self->fields->{$field_name};
     
-    $parameters ||= $self->params;
+    $parameters ||= $self->flatten_params;
     
     my $value = undef;
     
@@ -2457,6 +2457,35 @@ sub field_default_value {
     
     return $value;
     
+}
+
+=method flatten_params
+
+Depending on how parameters are being input into your application, if your
+input parameters are already complex hash structures, The flatten_params method
+will set and return the serialized version of your hashref based on the the
+default or custom configuration of the hash serializer L<Hash::Flatten>.
+
+Also, be aware that calling this method returns the flattened parameters object
+and alters the parameter store.
+
+    $self->flatten_params;
+
+=cut
+
+sub flatten_params {
+
+    my ($self) = @_;
+    
+    my $params = $self->params->hash;
+    
+    my $serializer = Hash::Flatten->new($self->hash_inflator);
+    
+    $self->{params} =
+        Validation::Class::Params->new($serializer->flatten($params));
+    
+    return $self->params->hash;
+
 }
 
 =method get_errors
@@ -2752,7 +2781,7 @@ sub normalize {
     
     if (grep { ref($_) } values %{$self->params}) {
         
-        $self->flatten_params($self->params);
+        $self->flatten_params;
         
     }
     
@@ -3157,41 +3186,6 @@ sub set_method {
     
 }
 
-=method flatten_params
-
-Depending on how parameters are being input into your application, if your
-input parameters are already complex hash structures, The flatten_params method
-will set and return the serialized version of your hashref based on the the
-default or custom configuration of the hash serializer L<Hash::Flatten>.
-
-    my $params = {
-        
-        user => {
-            login => 'member',
-            password => 'abc123456'
-        }
-        
-    };
-    
-    my $serialized_params = $self->flatten_params($params);
-
-=cut
-
-sub flatten_params {
-
-    my ($self, $params) = @_;
-    
-    $params = $self->unflatten_params($params);
-    
-    my $serializer = Hash::Flatten->new($self->hash_inflator);
-    
-    $self->{params} =
-        Validation::Class::Params->new($serializer->flatten($params));
-    
-    return $self->params->hash;
-
-}
-
 =method stash
 
 The stash method provides a container for context/instance specific information.
@@ -3279,46 +3273,31 @@ sub throw_error {
 
 =method unflatten_params
 
-If your fields and parameters are designed with complex hash-like structures,
-the unflatten_params method returns the deserialized hashref of registered
-parameters based on the the default or custom configuration of the hash
-serializer L<Hash::Flatten>. Please note, this functionality is called
-automatically during normalization which occurs at instantiation and
-validation, so chances are good that you'll likely not need to call this method.
+The unflatten_params method can be used to inflate the flattened (serialized)
+hashref of registered parameters based on the the default or custom configuration
+of the hash serializer L<Hash::Flatten>.
 
-    my $params = {
-        'user.login' => 'member',
-        'user.password' => 'abc123456'
-    };
-    
-    $params = $self->unflatten_params;
-        
-    print $params->{user}->{login};
-    
-    $self->params->add(
-        'user.login' => 'member',
-        'user.password' => 'abc123456'
-    );
-    
-    if ($self->validate) {
-    
-        print $params->{user}->{login};
-        
-    }
+Please note, this operation is called automatically during normalization which
+occurs at instantiation and validation, so chances are good that you'll likely
+not need to call this method.
+
+Also, be aware that calling this method returns the unflattened parameters object
+and alters the parameter store.
+
+    $self->unflatten_params;
 
 =cut
 
 sub unflatten_params {
     
-    my ($self, $params) = @_;
+    my ($self) = @_;
     
-    $self->params->add($params) if $params;
-    
-    $params = $self->params->hash;
+    my $params = $self->params->hash;
     
     my $serializer = Hash::Flatten->new($self->hash_inflator);
     
-    $params = $serializer->unflatten($params);
+    $self->{params} =
+        Validation::Class::Params->new($serializer->unflatten($params));
     
     return $params;
     
