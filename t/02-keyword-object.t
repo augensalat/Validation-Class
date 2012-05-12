@@ -9,13 +9,12 @@ use Test::More;
 
 SKIP: {
     
-    eval { require 'DBI.pm' && require 'DBD/SQLite.pm' };
+    eval { require DBI && require DBD::SQLite };
     
     plan skip_all => 'DBI or DBD::SQLite is not installed.' if $@;
     
     package TestClass::ObjectKeyword;
     
-    use DBI;
     use Validation::Class;
     
     fld name => {
